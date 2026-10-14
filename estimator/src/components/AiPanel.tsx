@@ -13,24 +13,40 @@ type PageStatus = { state: "queued" | "running" | "done" | "error"; error?: stri
 
 const CONCURRENCY = 3
 
-export function AiPanel({ project, update, doc, currentPage }: { project: Project; update: UpdateProject; doc: PDFDocumentProxy; currentPage: number }) {
+export function AiPanel({
+  project,
+  update,
+  doc,
+  pages,
+  currentPage,
+}: {
+  project: Project
+  update: UpdateProject
+  doc: PDFDocumentProxy
+  /** Sheets that belong to this estimate (one house of a multi-house set). */
+  pages: number[]
+  currentPage: number
+}) {
   const [prices] = usePriceList()
   const [categories] = useCategories()
-  const [selected, setSelected] = useState<Set<number>>(() => new Set(Array.from({ length: doc.numPages }, (_, i) => i + 1)))
+  const [selected, setSelected] = useState<Set<number>>(() => new Set(pages))
   const [highDetail, setHighDetail] = useState(true)
   const [status, setStatus] = useState<Record<number, PageStatus>>({})
   const [phase, setPhase] = useState<"idle" | "pages" | "consolidating">("idle")
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const notes = project.aiNotes ?? ""
+  // When this estimate is one house of a multi-house set, shared sheets (schedules, notes) can list every plan.
+  const aiNotes = project.pages?.length
+    ? `This estimate covers only the house "${project.name}". Some sheets are shared by several plans in the set; on those, count only what applies to this house and flag anything ambiguous.\n${notes}`
+    : notes
 
-  const pages = Array.from({ length: doc.numPages }, (_, i) => i + 1)
   const sheetOf = (n: number) => project.ai?.pages.find((p) => p.page === n)
 
   async function runConsolidation(pageResults: AiPageResult[], signal?: AbortSignal) {
     setPhase("consolidating")
     try {
-      const consolidation = await consolidate(pageResults, prices, categories, notes, signal)
+      const consolidation = await consolidate(pageResults, prices, categories, aiNotes, signal)
       update((p) => ({ ...p, ai: { at: new Date().toISOString(), pages: pageResults, consolidation } }))
     } catch (err) {
       if (!signal?.aborted) setError(`Combining results failed: ${(err as Error).message}`)
@@ -46,13 +62,15 @@ export function AiPanel({ project, update, doc, currentPage }: { project: Projec
     setPhase("pages")
     setStatus(Object.fromEntries(targets.map((n) => [n, { state: "queued" }])))
     // Keep results for sheets not re-run this time.
-    const results = new Map<number, AiPageResult>((project.ai?.pages ?? []).filter((p) => !targets.includes(p.page)).map((p) => [p.page, p]))
+    const results = new Map<number, AiPageResult>(
+      (project.ai?.pages ?? []).filter((p) => !targets.includes(p.page) && pages.includes(p.page)).map((p) => [p.page, p]),
+    )
     await runPool(
       targets,
       CONCURRENCY,
       (n) => {
         setStatus((s) => ({ ...s, [n]: { state: "running" } }))
-        return analyzePage(doc, n, { categories, projectNotes: notes, highDetail, signal: controller.signal })
+        return analyzePage(doc, n, { categories, projectNotes: aiNotes, highDetail, signal: controller.signal })
       },
       (n, result, err) => {
         if (result) results.set(n, result)

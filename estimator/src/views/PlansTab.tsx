@@ -5,6 +5,7 @@ import {
   FileUp,
   Hand,
   Hash,
+  Layers,
   Link2,
   Minus,
   Pentagon,
@@ -15,15 +16,17 @@ import {
   SquareDashed,
   Trash2,
 } from "lucide-react"
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AiPanel } from "../components/AiPanel"
 import { LinkMeasurementModal } from "../components/LinkMeasurementModal"
 import { PlanViewer, type Tool } from "../components/PlanViewer"
+import { SplitHousesModal } from "../components/SplitHousesModal"
 import { Thumbnails } from "../components/Thumbnails"
 import { Badge, Button, EmptyState, Field, Input, Modal, NumberInput, Select } from "../components/ui"
 import { measurementBaseUnit, measurementValue } from "../lib/calc"
 import { fmtNum, parseFeet, uid } from "../lib/format"
 import { COMMON_SCALES, type PDFDocumentProxy } from "../lib/pdf"
+import { projectPages } from "../lib/store"
 import type { Measurement, MeasureType, PageScale, Project } from "../lib/types"
 import type { UpdateProject } from "./ProjectView"
 
@@ -47,7 +50,15 @@ export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload 
   const [scaleOpen, setScaleOpen] = useState(false)
   const [calibrationUnits, setCalibrationUnits] = useState<number | null>(null)
   const [linking, setLinking] = useState<Measurement | null>(null)
+  const [splitting, setSplitting] = useState(false)
   const viewerBox = useRef<HTMLDivElement>(null)
+  const visiblePages = useMemo(() => (doc ? projectPages(project, doc.numPages) : []), [doc, project])
+  const pageIndex = visiblePages.indexOf(pageNumber)
+
+  // Keep the viewer on a sheet that belongs to this estimate.
+  useEffect(() => {
+    if (visiblePages.length && !visiblePages.includes(pageNumber)) setPageNumber(visiblePages[0])
+  }, [visiblePages, pageNumber])
 
   const scale = project.scales[pageNumber]
 
@@ -113,19 +124,26 @@ export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload 
   return (
     <div className="flex h-full min-h-[600px]">
       <aside className="hidden w-36 shrink-0 overflow-y-auto border-r border-slate-200 bg-slate-50 lg:block">
-        <Thumbnails doc={doc} current={pageNumber} onSelect={setPageNumber} badges={sheetBadges} />
+        <Thumbnails doc={doc} pages={visiblePages} current={pageNumber} onSelect={setPageNumber} badges={sheetBadges} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
           <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" disabled={pageNumber <= 1} onClick={() => setPageNumber((n) => n - 1)} aria-label="Previous page">
+            <Button size="sm" variant="ghost" disabled={pageIndex <= 0} onClick={() => setPageNumber(visiblePages[pageIndex - 1])} aria-label="Previous page">
               <ChevronLeft size={16} />
             </Button>
             <span className="text-sm tabular-nums">
-              {pageNumber} / {doc.numPages}
+              {pageIndex + 1} / {visiblePages.length}
+              {visiblePages.length !== doc.numPages && <span className="ml-1 text-xs text-slate-500">(p. {pageNumber})</span>}
             </span>
-            <Button size="sm" variant="ghost" disabled={pageNumber >= doc.numPages} onClick={() => setPageNumber((n) => n + 1)} aria-label="Next page">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={pageIndex >= visiblePages.length - 1}
+              onClick={() => setPageNumber(visiblePages[pageIndex + 1])}
+              aria-label="Next page"
+            >
               <ChevronRight size={16} />
             </Button>
           </div>
@@ -219,10 +237,27 @@ export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload 
               linkedLines={linkedLines}
             />
           ) : (
-            <AiPanel project={project} update={update} doc={doc} currentPage={pageNumber} />
+            <AiPanel project={project} update={update} doc={doc} pages={visiblePages} currentPage={pageNumber} />
           )}
         </div>
-        <div className="border-t border-slate-200 p-3 text-xs text-slate-500">
+        <div className="space-y-1.5 border-t border-slate-200 p-3 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Layers size={13} />
+            {visiblePages.length === doc.numPages ? (
+              <span>All {doc.numPages} sheets</span>
+            ) : (
+              <span>
+                {visiblePages.length} of {doc.numPages} sheets in this estimate
+                <button className="ml-1.5 text-brand-700 underline" onClick={() => update((p) => ({ ...p, pages: undefined }))}>
+                  Show all
+                </button>
+              </span>
+            )}
+            <button className="ml-auto font-medium text-brand-700 underline" onClick={() => setSplitting(true)}>
+              Several houses in this PDF? Split them
+            </button>
+          </div>
+          <div>
           Plan set: <span className="font-medium text-slate-700">{project.pdfName}</span>
           <label className="ml-2 cursor-pointer text-brand-700 underline">
             Replace
@@ -237,6 +272,7 @@ export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload 
               }}
             />
           </label>
+          </div>
         </div>
       </aside>
 
@@ -264,6 +300,7 @@ export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload 
           }}
         />
       )}
+      {splitting && <SplitHousesModal project={project} update={update} doc={doc} onClose={() => setSplitting(false)} />}
       {linking && <LinkMeasurementModal project={project} update={update} measurement={linking} onClose={() => setLinking(null)} />}
     </div>
   )

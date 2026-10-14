@@ -90,6 +90,16 @@ export function newProject(name: string): Project {
   }
 }
 
+export const pdfKeyOf = (p: Project) => p.pdfKey ?? p.id
+
+/** Pages of the plan set that belong to this estimate. */
+export function projectPages(p: Project, numPages: number): number[] {
+  const all = Array.from({ length: numPages }, (_, i) => i + 1)
+  if (!p.pages?.length) return all
+  const valid = p.pages.filter((n) => n >= 1 && n <= numPages)
+  return valid.length ? [...valid].sort((a, b) => a - b) : all
+}
+
 export function useProjects() {
   const [projects, setProjects] = useState<Project[] | null>(null)
   const reload = useCallback(() => {

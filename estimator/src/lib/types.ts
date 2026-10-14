@@ -168,6 +168,10 @@ export interface Project {
   measurements: Measurement[]
   scales: Record<number, PageScale>
   pdfName: string | null
+  /** IndexedDB key of the plan set; several estimates (houses) can share one PDF. Defaults to the project id. */
+  pdfKey?: string
+  /** Sheets that belong to this house. Undefined means every page of the PDF. */
+  pages?: number[]
   pageCount: number
   ai: AiRun | null
   /** Notes passed to the AI takeoff, e.g. finish selections the plans don't show. */

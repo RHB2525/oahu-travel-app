@@ -3,10 +3,10 @@ import { ChevronLeft } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { projectTotals } from "../lib/calc"
 import { db } from "../lib/db"
-import { fmtMoney0 } from "../lib/format"
+import { fmtMoney0, uid } from "../lib/format"
 import { loadPdf, type PDFDocumentProxy } from "../lib/pdf"
 import { href, type ProjectTab } from "../lib/route"
-import { useCategories, useProject } from "../lib/store"
+import { pdfKeyOf, useCategories, useProject } from "../lib/store"
 import type { Project } from "../lib/types"
 import { DetailsTab } from "./DetailsTab"
 import { EstimateTab } from "./EstimateTab"
@@ -29,16 +29,18 @@ export function ProjectView({ id, tab }: { id: string; tab: ProjectTab }) {
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(true)
   const [pdfVersion, setPdfVersion] = useState(0)
+  const pdfKey = project ? pdfKeyOf(project) : null
 
   // This effect owns the loaded document and frees it when the project or file changes.
   useEffect(() => {
+    if (!pdfKey) return
     let cancelled = false
     let loaded: PDFDocumentProxy | null = null
     setPdfLoading(true)
     setPdfError(null)
     void (async () => {
       try {
-        const blob = await db.getPdf(id)
+        const blob = await db.getPdf(pdfKey)
         if (blob) loaded = await loadPdf(blob)
         if (cancelled) void loaded?.loadingTask.destroy()
         else setDoc(loaded)
@@ -55,7 +57,7 @@ export function ProjectView({ id, tab }: { id: string; tab: ProjectTab }) {
       cancelled = true
       void loaded?.loadingTask.destroy()
     }
-  }, [id, pdfVersion])
+  }, [pdfKey, pdfVersion])
 
   const replacePdf = useCallback(
     async (file: File) => {
@@ -66,11 +68,14 @@ export function ProjectView({ id, tab }: { id: string; tab: ProjectTab }) {
       }
       const pageCount = check.numPages
       void check.loadingTask.destroy()
-      await db.putPdf(id, file)
-      update((p) => ({ ...p, pdfName: file.name, pageCount }))
+      // A replacement always gets a fresh key so other houses sharing the old set are untouched.
+      const newKey = uid()
+      await db.putPdf(newKey, file)
+      if (pdfKey && !(await db.listProjects()).some((x) => x.id !== id && pdfKeyOf(x) === pdfKey)) await db.deletePdf(pdfKey)
+      update((p) => ({ ...p, pdfName: file.name, pdfKey: newKey, pages: undefined, pageCount }))
       setPdfVersion((v) => v + 1)
     },
-    [id, update],
+    [id, pdfKey, update],
   )
 
   useEffect(() => {

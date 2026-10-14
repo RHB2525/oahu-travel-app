@@ -49,7 +49,9 @@ export const db = {
   },
   async deleteProject(id: string): Promise<void> {
     await wrap((await store("projects", "readwrite")).delete(id))
-    await wrap((await store("pdfs", "readwrite")).delete(id))
+  },
+  async deletePdf(key: string): Promise<void> {
+    await wrap((await store("pdfs", "readwrite")).delete(key))
   },
   async getPdf(projectId: string): Promise<Blob | undefined> {
     return wrap((await store("pdfs", "readonly")).get(projectId) as IDBRequest<Blob | undefined>)

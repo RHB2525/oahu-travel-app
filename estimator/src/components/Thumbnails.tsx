@@ -2,41 +2,57 @@ import clsx from "clsx"
 import { useEffect, useState } from "react"
 import { renderToCanvas, type PDFDocumentProxy } from "../lib/pdf"
 
-/** Page strip; thumbnails render one at a time so a 60-sheet set doesn't stall the UI. */
-export function Thumbnails({
-  doc,
-  current,
-  onSelect,
-  badges,
-}: {
-  doc: PDFDocumentProxy
-  current: number
-  onSelect: (page: number) => void
-  badges: Record<number, string>
-}) {
-  const [thumbs, setThumbs] = useState<Record<number, string>>({})
+const cache = new WeakMap<PDFDocumentProxy, Record<number, string>>()
+
+/** Page thumbnails as data URLs, rendered one at a time so a 60-sheet set doesn't stall the UI. */
+export function useThumbnails(doc: PDFDocumentProxy, pages: number[]) {
+  const [thumbs, setThumbs] = useState<Record<number, string>>(() => ({ ...(cache.get(doc) ?? {}) }))
+  const key = pages.join(",")
 
   useEffect(() => {
     let cancelled = false
-    setThumbs({})
+    const store = cache.get(doc) ?? {}
+    cache.set(doc, store)
+    setThumbs({ ...store })
     void (async () => {
-      for (let i = 1; i <= doc.numPages && !cancelled; i++) {
-        const page = await doc.getPage(i)
+      for (const n of pages) {
+        if (cancelled) return
+        if (store[n]) continue
+        const page = await doc.getPage(n)
         const vp = page.getViewport({ scale: 1 })
         const canvas = await renderToCanvas(page, 160 / Math.max(vp.width, vp.height))
-        const url = canvas.toDataURL("image/jpeg", 0.7)
+        store[n] = canvas.toDataURL("image/jpeg", 0.7)
         canvas.width = canvas.height = 0
-        if (!cancelled) setThumbs((t) => ({ ...t, [i]: url }))
+        if (!cancelled) setThumbs({ ...store })
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [doc])
+    // pages is captured via key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, key])
 
+  return thumbs
+}
+
+export function Thumbnails({
+  doc,
+  pages,
+  current,
+  onSelect,
+  badges,
+}: {
+  doc: PDFDocumentProxy
+  pages: number[]
+  current: number
+  onSelect: (page: number) => void
+  badges: Record<number, string>
+}) {
+  const thumbs = useThumbnails(doc, pages)
   return (
     <div className="space-y-2 p-2">
-      {Array.from({ length: doc.numPages }, (_, i) => i + 1).map((n) => (
+      {pages.map((n) => (
         <button
           key={n}
           onClick={() => onSelect(n)}

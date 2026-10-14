@@ -1,4 +1,4 @@
-import { Download, FileUp, FolderOpen, Plus, Trash2, Upload } from "lucide-react"
+import { Copy, Download, FileUp, FolderOpen, Layers, Plus, Trash2, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button, Card, EmptyState, Field, Input, Modal } from "../components/ui"
 import { projectTotals } from "../lib/calc"
@@ -6,7 +6,7 @@ import { db } from "../lib/db"
 import { downloadBlob, fmtMoney0, safeFilename, uid } from "../lib/format"
 import { bytesToBase64 } from "../lib/pdf"
 import { href, navigate } from "../lib/route"
-import { newProject, useCategories, useProjects } from "../lib/store"
+import { newProject, pdfKeyOf, useCategories, useProjects } from "../lib/store"
 import type { Project } from "../lib/types"
 
 export function ProjectsView() {
@@ -16,7 +16,7 @@ export function ProjectsView() {
   const importRef = useRef<HTMLInputElement>(null)
 
   async function exportBackup(p: Project) {
-    const pdf = await db.getPdf(p.id)
+    const pdf = await db.getPdf(pdfKeyOf(p))
     const payload = {
       app: "home-estimator",
       version: 1,
@@ -30,7 +30,7 @@ export function ProjectsView() {
     try {
       const payload = JSON.parse(await file.text())
       if (payload?.app !== "home-estimator" || !payload.project) throw new Error("Not an estimator backup file.")
-      const project: Project = { ...payload.project, id: uid(), updatedAt: new Date().toISOString() }
+      const project: Project = { ...payload.project, id: uid(), pdfKey: undefined, updatedAt: new Date().toISOString() }
       await db.putProject(project)
       if (payload.pdfBase64) {
         const bytes = Uint8Array.from(atob(payload.pdfBase64), (c) => c.charCodeAt(0))
@@ -43,10 +43,21 @@ export function ProjectsView() {
   }
 
   async function remove(p: Project) {
-    if (!confirm(`Delete "${p.name}" and its plan set? This cannot be undone.`)) return
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return
     await db.deleteProject(p.id)
+    // The plan set may be shared with other houses split from the same PDF.
+    const key = pdfKeyOf(p)
+    if (!(await db.listProjects()).some((x) => pdfKeyOf(x) === key)) await db.deletePdf(key)
     reload()
   }
+
+  async function duplicate(p: Project) {
+    const now = new Date().toISOString()
+    await db.putProject({ ...structuredClone(p), id: uid(), pdfKey: pdfKeyOf(p), name: `${p.name} (copy)`, createdAt: now, updatedAt: now })
+    reload()
+  }
+
+  const sharedCount = (p: Project) => projects?.filter((x) => pdfKeyOf(x) === pdfKeyOf(p)).length ?? 0
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6">
@@ -92,12 +103,22 @@ export function ProjectsView() {
                   <p className="truncate text-sm text-slate-500">
                     {[p.number, p.client.name, p.siteAddress, p.pdfName].filter(Boolean).join(" · ")}
                   </p>
+                  {(p.pages?.length || sharedCount(p) > 1) && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                      <Layers size={12} />
+                      {p.pages?.length ? `${p.pages.length} sheet${p.pages.length === 1 ? "" : "s"}` : "All sheets"}
+                      {sharedCount(p) > 1 && ` · plan set shared with ${sharedCount(p) - 1} other estimate${sharedCount(p) > 2 ? "s" : ""}`}
+                    </p>
+                  )}
                 </a>
                 <div className="text-right">
                   <p className="font-semibold tabular-nums">{fmtMoney0(projectTotals(p, categories).total)}</p>
                   <p className="text-xs text-slate-500">Updated {new Date(p.updatedAt).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" title="Duplicate (e.g. to start a similar plan)" onClick={() => void duplicate(p)}>
+                    <Copy size={16} />
+                  </Button>
                   <Button size="sm" variant="ghost" title="Download backup" onClick={() => void exportBackup(p)}>
                     <Download size={16} />
                   </Button>
