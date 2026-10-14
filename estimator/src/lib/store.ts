@@ -114,6 +114,7 @@ export function useProject(id: string) {
   const [project, setProject] = useState<Project | null | undefined>(undefined)
   const timer = useRef<number | undefined>(undefined)
   const latest = useRef<Project | null>(null)
+  const mounted = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -135,26 +136,36 @@ export function useProject(id: string) {
   }, [])
 
   useEffect(() => {
+    mounted.current = true
     window.addEventListener("beforeunload", flush)
     return () => {
+      mounted.current = false
       window.removeEventListener("beforeunload", flush)
       flush()
     }
   }, [flush])
 
-  const update = useCallback((fn: (p: Project) => Project) => {
-    setProject((prev) => {
-      if (!prev) return prev
-      const next = { ...fn(prev), updatedAt: new Date().toISOString() }
+  const update = useCallback(
+    (fn: (p: Project) => Project) => {
+      const stamp = (p: Project) => ({ ...fn(p), updatedAt: new Date().toISOString() })
+      if (!mounted.current) {
+        // Work that finishes after leaving the page (e.g. an AI run) is applied to the stored copy.
+        void db.getProject(id).then((p) => p && db.putProject(stamp(p)))
+        return
+      }
+      const prev = latest.current
+      if (!prev) return
+      const next = stamp(prev)
       latest.current = next
+      setProject(next)
       window.clearTimeout(timer.current)
       timer.current = window.setTimeout(() => {
         timer.current = undefined
         void db.putProject(next)
       }, 400)
-      return next
-    })
-  }, [])
+    },
+    [id],
+  )
 
   return { project, update }
 }

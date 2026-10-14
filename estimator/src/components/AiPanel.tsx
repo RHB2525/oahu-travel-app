@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles, Square, XCircle } from "lucide-react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { aiLineToEstimate, analyzePage, consolidate, runPool } from "../lib/ai"
 import { fmtNum } from "../lib/format"
 import type { PDFDocumentProxy } from "../lib/pdf"
@@ -86,6 +86,14 @@ export function AiPanel({
   }
 
   const running = phase !== "idle"
+
+  // Closing the tab mid-run would cancel the requests; other pages in the app are fine.
+  useEffect(() => {
+    if (!running) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [running])
   const toggle = (n: number) =>
     setSelected((s) => {
       const next = new Set(s)
@@ -178,6 +186,11 @@ export function AiPanel({
           </Button>
         ) : null}
       </div>
+      {running && (
+        <p className="rounded bg-sky-50 p-2 text-xs text-sky-900">
+          You can switch to other pages in the estimator while this runs; results are saved when they arrive. Don't close this browser tab.
+        </p>
+      )}
       {phase === "pages" && (
         <p className="text-xs text-slate-500">
           Reading sheets… {Object.values(status).filter((s) => s.state === "done" || s.state === "error").length} / {Object.keys(status).length} done. Each sheet
