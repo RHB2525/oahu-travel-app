@@ -29,3 +29,7 @@ npm run dev
 Push to GitHub, import in Vercel, set the three env vars in Vercel's dashboard. Then add the Vercel domain to:
 - Google Cloud → API key → HTTP referrer restrictions
 - Supabase → Auth → URL Configuration → Site URL + Redirect URLs
+
+## Home Construction Estimator
+
+A separate app lives in [`estimator/`](estimator/README.md): upload a house plan set PDF, do manual or AI quantity takeoff, price it against your own price list, and print a client proposal or export to Excel.
