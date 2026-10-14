@@ -98,7 +98,7 @@ export interface CategoryTotal {
   material: number
   labor: number
   direct: number
-  /** Direct cost with overhead, profit, contingency and tax spread proportionally. */
+  /** Price shown to the client: direct cost with markups spread in proportion (and materials tax, when carried as a cost). */
   sell: number
   lines: number
 }
@@ -111,6 +111,8 @@ export interface ProjectTotals {
   profit: number
   contingency: number
   tax: number
+  /** True when tax is the builder's cost on materials (already inside the total, not shown to the client). */
+  taxOnMaterials: boolean
   total: number
   perSf: number | null
   categories: CategoryTotal[]
@@ -133,18 +135,24 @@ export function projectTotals(project: Project, categoryOrder: string[]): Projec
     byCat.set(line.category, c)
   }
   const direct = material + labor
-  const overhead = direct * (s.overheadPct / 100)
-  const profit = (direct + overhead) * (s.profitPct / 100)
+  const rate = s.taxPct / 100
+  const onMaterials = s.taxBasis !== "total"
+  // Materials tax is a cost the builder pays, so overhead and profit apply on top of it.
+  const materialsTax = onMaterials ? material * rate : 0
+  const base = direct + materialsTax
+  const overhead = base * (s.overheadPct / 100)
+  const profit = (base + overhead) * (s.profitPct / 100)
   const contingency = direct * (s.contingencyPct / 100)
-  const tax = (direct + overhead + profit + contingency) * (s.taxPct / 100)
-  const total = direct + overhead + profit + contingency + tax
-  const ratio = direct > 0 ? total / direct : 0
+  const preTax = base + overhead + profit + contingency
+  const tax = onMaterials ? materialsTax : preTax * rate
+  const total = onMaterials ? preTax : preTax + tax
+  const markup = base > 0 ? preTax / base : 0
   const order = (cat: string) => {
     const i = categoryOrder.indexOf(cat)
     return i === -1 ? 999 : i
   }
   const categories = [...byCat.values()]
-    .map((c) => ({ ...c, sell: c.direct * ratio }))
+    .map((c) => ({ ...c, sell: (c.direct + (onMaterials ? c.material * rate : 0)) * markup }))
     .sort((a, b) => order(a.category) - order(b.category) || a.category.localeCompare(b.category))
   return {
     material,
@@ -154,6 +162,7 @@ export function projectTotals(project: Project, categoryOrder: string[]): Projec
     profit,
     contingency,
     tax,
+    taxOnMaterials: onMaterials,
     total,
     perSf: s.conditionedSf > 0 ? total / s.conditionedSf : null,
     categories,

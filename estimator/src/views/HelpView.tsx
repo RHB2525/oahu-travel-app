@@ -90,8 +90,9 @@ export function HelpView() {
             with <B>Add line</B> (for allowances or anything the plans don't show). Totals update instantly.
           </li>
           <li>
-            <B>Markups and client:</B> on <B>Job Details</B>, enter the client and check overhead, profit, contingency and tax (O‘ahu GET
-            4.712% by default).
+            <B>Markups and client:</B> on <B>Job Details</B>, enter the client and check overhead, profit, contingency and sales tax. The
+            default is Georgetown, TX: 8.25% on materials as your cost (new residential, lump-sum), with no tax line on the proposal. Switch to
+            "on the whole price" for jobs where you charge tax to the client.
           </li>
           <li>
             <B>Send it:</B> on <B>Proposal</B>, add scope notes and exclusions, then click <B>Print / Save as PDF</B> and choose "Save as PDF".

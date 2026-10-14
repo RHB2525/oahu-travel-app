@@ -93,14 +93,31 @@ export async function exportEstimateXlsx(project: Project, priceList: PriceItem[
   const pctRow = (label: string, pct: number, formula: string, result: number) => {
     summary.addRow([`${label} (${pct}%)`, "", "", { formula, result }])
   }
-  pctRow("Overhead", s.overheadPct, `D${directRow}*${s.overheadPct / 100}`, totals.overhead)
-  const ohRow = summary.rowCount
-  pctRow("Profit", s.profitPct, `(D${directRow}+D${ohRow})*${s.profitPct / 100}`, totals.profit)
-  const prRow = summary.rowCount
-  pctRow("Contingency", s.contingencyPct, `D${directRow}*${s.contingencyPct / 100}`, totals.contingency)
-  const coRow = summary.rowCount
-  pctRow("Tax / GET", s.taxPct, `(D${directRow}+D${ohRow}+D${prRow}+D${coRow})*${s.taxPct / 100}`, totals.tax)
-  const txRow = summary.rowCount
+  const rate = s.taxPct / 100
+  let txRow: number
+  let ohRow: number
+  let prRow: number
+  let coRow: number
+  if (totals.taxOnMaterials) {
+    // Tax on materials is a cost; overhead and profit apply on top of it.
+    pctRow("Sales tax on materials", s.taxPct, `B${directRow}*${rate}`, totals.tax)
+    txRow = summary.rowCount
+    pctRow("Overhead", s.overheadPct, `(D${directRow}+D${txRow})*${s.overheadPct / 100}`, totals.overhead)
+    ohRow = summary.rowCount
+    pctRow("Profit", s.profitPct, `(D${directRow}+D${txRow}+D${ohRow})*${s.profitPct / 100}`, totals.profit)
+    prRow = summary.rowCount
+    pctRow("Contingency", s.contingencyPct, `D${directRow}*${s.contingencyPct / 100}`, totals.contingency)
+    coRow = summary.rowCount
+  } else {
+    pctRow("Overhead", s.overheadPct, `D${directRow}*${s.overheadPct / 100}`, totals.overhead)
+    ohRow = summary.rowCount
+    pctRow("Profit", s.profitPct, `(D${directRow}+D${ohRow})*${s.profitPct / 100}`, totals.profit)
+    prRow = summary.rowCount
+    pctRow("Contingency", s.contingencyPct, `D${directRow}*${s.contingencyPct / 100}`, totals.contingency)
+    coRow = summary.rowCount
+    pctRow("Sales tax on total", s.taxPct, `(D${directRow}+D${ohRow}+D${prRow}+D${coRow})*${rate}`, totals.tax)
+    txRow = summary.rowCount
+  }
   summary.addRow(["TOTAL", "", "", { formula: `D${directRow}+D${ohRow}+D${prRow}+D${coRow}+D${txRow}`, result: totals.total }]).font = {
     bold: true,
     size: 12,

@@ -11,9 +11,10 @@ export function ProposalTab({ project, update }: { project: Project; update: Upd
   const [categories] = useCategories()
   const [company] = useCompany()
   const totals = projectTotals(project, categories)
-  const pre = totals.total - totals.tax
-  // Markups (not tax) are spread across categories so the client sees all-in prices per trade.
-  const ratio = totals.direct > 0 ? pre / totals.direct : 0
+  // Markups are spread across categories so the client sees all-in prices per trade.
+  // Tax charged on the whole price is shown on its own line; materials tax is already inside each price.
+  const showTaxLine = !totals.taxOnMaterials && totals.tax > 0
+  const pre = showTaxLine ? totals.total - totals.tax : totals.total
   const setProposal = (change: Partial<Project["proposal"]>) => update((p) => ({ ...p, proposal: { ...p.proposal, ...change } }))
   const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
 
@@ -118,12 +119,12 @@ export function ProposalTab({ project, update }: { project: Project; update: Upd
                       </ul>
                     )}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums">{fmtMoney(c.direct * ratio)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{fmtMoney(c.sell)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="avoid-break">
-              {totals.tax > 0 && (
+              {showTaxLine && (
                 <>
                   <tr>
                     <td className="pt-3 text-right font-medium">Subtotal</td>

@@ -79,7 +79,7 @@ export function newProject(name: string): Project {
     siteAddress: "",
     createdAt: now,
     updatedAt: now,
-    settings: { overheadPct: 10, profitPct: 10, contingencyPct: 5, taxPct: 4.712, conditionedSf: 0 },
+    settings: { overheadPct: 10, profitPct: 10, contingencyPct: 5, taxPct: DEFAULT_TAX_PCT, taxBasis: "materials", conditionedSf: 0 },
     lines: [],
     measurements: [],
     scales: {},
@@ -89,6 +89,9 @@ export function newProject(name: string): Project {
     proposal: { scopeNotes: "", exclusions: "", showLineItems: false },
   }
 }
+
+/** Georgetown, TX combined sales tax: 6.25% state + 2% city. */
+export const DEFAULT_TAX_PCT = 8.25
 
 export const pdfKeyOf = (p: Project) => p.pdfKey ?? p.id
 

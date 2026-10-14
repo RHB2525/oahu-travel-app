@@ -88,11 +88,18 @@ export interface PageScale {
   label: string
 }
 
+export type TaxBasis = "materials" | "total"
+
 export interface ProjectSettings {
   overheadPct: number
   profitPct: number
   contingencyPct: number
   taxPct: number
+  /**
+   * "materials": sales tax the builder pays on materials, carried as a cost (Texas new residential
+   * construction, lump-sum contracts). "total": tax charged to the client on the whole price.
+   */
+  taxBasis: TaxBasis
   conditionedSf: number
 }
 

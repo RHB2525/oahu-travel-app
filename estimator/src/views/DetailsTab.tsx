@@ -1,5 +1,5 @@
-import { Card, Field, Input, NumberInput, Textarea } from "../components/ui"
-import type { ClientInfo, Project } from "../lib/types"
+import { Card, Field, Input, NumberInput, Select, Textarea } from "../components/ui"
+import type { ClientInfo, Project, TaxBasis } from "../lib/types"
 import type { UpdateProject } from "./ProjectView"
 
 export function DetailsTab({ project, update }: { project: Project; update: UpdateProject }) {
@@ -52,10 +52,20 @@ export function DetailsTab({ project, update }: { project: Project; update: Upda
           <Field label="Contingency %">
             <NumberInput value={project.settings.contingencyPct} onCommit={(n) => setSettings({ contingencyPct: n })} />
           </Field>
-          <Field label="Tax / GET %" hint="O‘ahu GET pass-through is 4.712%.">
+          <Field label="Sales tax %" hint="Georgetown, TX: 8.25% (6.25% state + 2% city).">
             <NumberInput value={project.settings.taxPct} onCommit={(n) => setSettings({ taxPct: n })} />
           </Field>
         </div>
+        <Field label="How sales tax applies" className="mt-4">
+          <Select value={project.settings.taxBasis} onChange={(e) => setSettings({ taxBasis: e.target.value as TaxBasis })}>
+            <option value="materials">On materials only, as my cost (new residential, lump-sum contract)</option>
+            <option value="total">On the whole price, charged to the client (e.g. separated remodel contract)</option>
+          </Select>
+        </Field>
+        <p className="mt-2 text-xs text-slate-500">
+          In Texas, new residential construction is usually a lump-sum contract: you pay sales tax when you buy materials and don't charge
+          it on the contract price. Confirm with your accountant for remodel or commercial work.
+        </p>
       </Card>
     </div>
   )

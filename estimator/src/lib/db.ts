@@ -5,6 +5,17 @@ import type { Project } from "./types"
 const DB_NAME = "home-estimator"
 const DB_VERSION = 1
 
+/** Fills in settings added after a project was saved. Early projects used Hawaii GET (4.712% on the total). */
+export function migrateProject(p: Project): Project {
+  const s = p.settings as Project["settings"] & { taxBasis?: Project["settings"]["taxBasis"] }
+  if (s.taxBasis) return p
+  const wasHawaiiDefault = s.taxPct === 4.712
+  return {
+    ...p,
+    settings: { ...s, taxBasis: wasHawaiiDefault ? "materials" : "total", taxPct: wasHawaiiDefault ? 8.25 : s.taxPct },
+  }
+}
+
 let dbPromise: Promise<IDBDatabase> | null = null
 
 function open(): Promise<IDBDatabase> {
@@ -39,10 +50,11 @@ async function store(name: string, mode: IDBTransactionMode) {
 export const db = {
   async listProjects(): Promise<Project[]> {
     const all = await wrap((await store("projects", "readonly")).getAll() as IDBRequest<Project[]>)
-    return all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    return all.map(migrateProject).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   },
   async getProject(id: string): Promise<Project | undefined> {
-    return wrap((await store("projects", "readonly")).get(id) as IDBRequest<Project | undefined>)
+    const p = await wrap((await store("projects", "readonly")).get(id) as IDBRequest<Project | undefined>)
+    return p && migrateProject(p)
   },
   async putProject(project: Project): Promise<void> {
     await wrap((await store("projects", "readwrite")).put(project))

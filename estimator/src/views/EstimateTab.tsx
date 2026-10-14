@@ -147,7 +147,12 @@ export function EstimateTab({ project, update }: { project: Project; update: Upd
             <PctRow label="Overhead" pct={project.settings.overheadPct} value={totals.overhead} onPct={(n) => patchSettings({ overheadPct: n })} />
             <PctRow label="Profit" pct={project.settings.profitPct} value={totals.profit} onPct={(n) => patchSettings({ profitPct: n })} />
             <PctRow label="Contingency" pct={project.settings.contingencyPct} value={totals.contingency} onPct={(n) => patchSettings({ contingencyPct: n })} />
-            <PctRow label="Tax / GET" pct={project.settings.taxPct} value={totals.tax} onPct={(n) => patchSettings({ taxPct: n })} />
+            <PctRow
+              label={totals.taxOnMaterials ? "Sales tax on materials" : "Sales tax on total"}
+              pct={project.settings.taxPct}
+              value={totals.tax}
+              onPct={(n) => patchSettings({ taxPct: n })}
+            />
             <div className="border-t border-slate-200 pt-2">
               <Row label="Total" value={totals.total} strong big />
             </div>
@@ -167,7 +172,12 @@ export function EstimateTab({ project, update }: { project: Project; update: Upd
               )}
             </div>
           </div>
-          <p className="mt-3 text-xs text-slate-500">Profit applies to direct cost + overhead. Tax applies to the marked-up subtotal.</p>
+          <p className="mt-3 text-xs text-slate-500">
+            {totals.taxOnMaterials
+              ? "Sales tax is your cost on materials (Texas new residential, lump-sum). Overhead and profit apply on top; the client sees no separate tax line."
+              : "Sales tax is charged to the client on the marked-up total and shown on its own proposal line."}{" "}
+            Change this on Job Details.
+          </p>
         </Card>
       </aside>
 
