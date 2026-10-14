@@ -8,6 +8,7 @@ import { loadPdf, type PDFDocumentProxy } from "../lib/pdf"
 import { href, type ProjectTab } from "../lib/route"
 import { pdfKeyOf, useCategories, useProject } from "../lib/store"
 import type { Project } from "../lib/types"
+import { NextStep } from "../components/NextStep"
 import { DetailsTab } from "./DetailsTab"
 import { EstimateTab } from "./EstimateTab"
 import { PlansTab } from "./PlansTab"
@@ -22,7 +23,7 @@ const TABS: { id: ProjectTab; label: string }[] = [
   { id: "details", label: "Job Details" },
 ]
 
-export function ProjectView({ id, tab }: { id: string; tab: ProjectTab }) {
+export function ProjectView({ id, tab, panel }: { id: string; tab: ProjectTab; panel?: "ai" }) {
   const { project, update } = useProject(id)
   const [categories] = useCategories()
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
@@ -130,9 +131,18 @@ export function ProjectView({ id, tab }: { id: string; tab: ProjectTab }) {
           ))}
         </nav>
       </div>
+      <NextStep project={project} doc={doc} />
       <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
         {tab === "plans" && (
-          <PlansTab project={project} update={update} doc={doc} pdfLoading={pdfLoading} pdfError={pdfError} onUpload={replacePdf} />
+          <PlansTab
+            project={project}
+            update={update}
+            doc={doc}
+            pdfLoading={pdfLoading}
+            pdfError={pdfError}
+            onUpload={replacePdf}
+            initialPanel={panel}
+          />
         )}
         {tab === "estimate" && <EstimateTab project={project} update={update} />}
         {tab === "proposal" && <ProposalTab project={project} update={update} />}

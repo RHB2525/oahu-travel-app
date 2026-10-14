@@ -1,10 +1,11 @@
-import { Building2, Calculator, FolderOpen, ListOrdered } from "lucide-react"
+import { Building2, Calculator, CircleHelp, FolderOpen, ListOrdered } from "lucide-react"
 import clsx from "clsx"
 import { href, useRoute } from "./lib/route"
 import { ProjectsView } from "./views/ProjectsView"
 import { ProjectView } from "./views/ProjectView"
 import { PriceListView } from "./views/PriceListView"
 import { CompanyView } from "./views/CompanyView"
+import { HelpView } from "./views/HelpView"
 
 export default function App() {
   const route = useRoute()
@@ -12,6 +13,7 @@ export default function App() {
     { to: href.projects(), label: "Projects", icon: FolderOpen, active: route.name === "projects" || route.name === "project" },
     { to: href.prices(), label: "Price List", icon: ListOrdered, active: route.name === "prices" },
     { to: href.company(), label: "Company", icon: Building2, active: route.name === "company" },
+    { to: href.help(), label: "Help", icon: CircleHelp, active: route.name === "help" },
   ]
   return (
     <div className="flex min-h-full flex-col">
@@ -40,9 +42,10 @@ export default function App() {
       </header>
       <main className="flex-1">
         {route.name === "projects" && <ProjectsView />}
-        {route.name === "project" && <ProjectView key={route.id} id={route.id} tab={route.tab} />}
+        {route.name === "project" && <ProjectView key={route.id} id={route.id} tab={route.tab} panel={route.panel} />}
         {route.name === "prices" && <PriceListView />}
         {route.name === "company" && <CompanyView />}
+        {route.name === "help" && <HelpView />}
       </main>
     </div>
   )

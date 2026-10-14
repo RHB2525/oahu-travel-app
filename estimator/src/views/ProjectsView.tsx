@@ -64,7 +64,12 @@ export function ProjectsView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Projects</h1>
-          <p className="text-sm text-slate-500">Saved in this browser. Use Backup to move a job to another computer.</p>
+          <p className="text-sm text-slate-500">
+            Saved in this browser. Use Backup to move a job to another computer.{" "}
+            <a className="text-brand-700 underline" href={href.help()}>
+              How to use the estimator
+            </a>
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => importRef.current?.click()}>

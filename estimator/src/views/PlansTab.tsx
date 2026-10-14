@@ -39,14 +39,19 @@ interface Props {
   pdfLoading: boolean
   pdfError: string | null
   onUpload: (file: File) => Promise<void>
+  /** Opens the AI Takeoff panel when the "Next step" guide links here. */
+  initialPanel?: "ai"
 }
 
-export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload }: Props) {
+export function PlansTab({ project, update, doc, pdfLoading, pdfError, onUpload, initialPanel }: Props) {
   const [pageNumber, setPageNumber] = useState(1)
   const [zoom, setZoom] = useState(0.5)
   const [tool, setTool] = useState<Tool>("pan")
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [panel, setPanel] = useState<"takeoff" | "ai">("takeoff")
+  const [panel, setPanel] = useState<"takeoff" | "ai">(initialPanel ?? "takeoff")
+  useEffect(() => {
+    if (initialPanel) setPanel(initialPanel)
+  }, [initialPanel])
   const [scaleOpen, setScaleOpen] = useState(false)
   const [calibrationUnits, setCalibrationUnits] = useState<number | null>(null)
   const [linking, setLinking] = useState<Measurement | null>(null)
