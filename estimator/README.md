@@ -11,7 +11,7 @@ This is a standalone app. It shares the repository with the O‘ahu Travel app b
 | **Plan upload** | Drag in the full PDF plan set. The file is stored in the browser (IndexedDB), with page thumbnails and sheet numbers. |
 | **Several houses in one PDF** | On the Plans tab, click **Several houses in this PDF? Split them**. Name each house (Plan A, Plan B…) and click its sheets. Sheets every house uses (cover, general notes, schedules) can be marked **Shared by all**. You get one estimate per house, each showing and analyzing only its own sheets, all sharing one stored copy of the PDF. **Duplicate** on the Projects page copies an estimate as a starting point for a similar plan. |
 | **Manual takeoff** | Set the scale per sheet (printed-scale presets, or calibrate by clicking a known dimension). Then measure **Length** (LF), **Area** (SF) and **Count** (EA) on the sheet. A multiplier handles wall height or both sides. Link measurements to estimate lines and the quantities stay live. |
-| **AI takeoff** | Claude reads each selected sheet: a full-page image, four zoomed quadrants in high-detail mode, and the PDF text layer. It reports roof, electrical, plumbing, cabinet, flooring and other quantities, with how it got each number and a confidence level. A second pass removes cross-sheet duplicates and matches lines to **your** price-list codes. You review the result and add it to the estimate. |
+| **AI takeoff** | Claude reads each selected sheet: a full-page image, zoomed sections sized to the sheet in high-detail mode (a 3×2 grid on 36"×24" and larger sheets), and the PDF text layer if there is one. It reports roof, electrical, plumbing, cabinet, flooring and other quantities, with how it got each number and a confidence level. A second pass removes cross-sheet duplicates and matches lines to **your** price-list codes. You review the result and add it to the estimate. |
 | **Price list** | Your own unit costs (material, labor, waste %) by code. Import CSV/XLSX (download the template from the Price List page), export, edit inline. Categories are editable, so custom upgrades can get their own trades. |
 | **Estimate** | Lines grouped by trade, with waste, material and labor extensions, overhead, profit, contingency, tax (defaults to O‘ahu GET 4.712%), and cost per SF. |
 | **Outputs** | Client proposal (print → Save as PDF), Excel workbook (Summary with formulas, Detail, Takeoff log, Price List), CSV. |
@@ -37,8 +37,8 @@ The AI endpoints (`/api/analyze-page`, `/api/consolidate`) run inside the Vite d
 ## AI cost and accuracy notes
 
 - Model: `claude-opus-5-5` with adaptive thinking at high effort and structured JSON output. Server-side refusal fallback is enabled.
-- Each sheet is one request, run three at a time. High-detail mode sends five images per sheet instead of one. It's more expensive but much better at counting outlets and fixtures.
-- Vector (CAD-exported) PDFs give the best results because dimensions and schedules come through as text. Scanned sets work, but they rely on the images alone.
+- Each sheet is one request, run three at a time. High-detail mode sends up to seven images per sheet instead of one. It's more expensive but much better at counting outlets and fixtures.
+- Vector (CAD-exported) PDFs give the best results because dimensions and schedules come through as text. Scanned or image-only sets (no selectable text) work, but they rely on the images alone, so check small-text items such as ceiling heights and window sizes.
 - Treat AI quantities as a first draft. Lines show their basis, source sheets and confidence, and the "Verify / ask about" list flags gaps such as a missing roof plan.
 
 ## Project layout

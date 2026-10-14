@@ -1,6 +1,6 @@
 import { convertQty } from "./calc"
 import { uid } from "./format"
-import { pageText, pageToJpeg, pageToTiles, type PDFDocumentProxy } from "./pdf"
+import { pageImagesForAi, pageText, type PDFDocumentProxy } from "./pdf"
 import { UNITS, type AiConsolidation, type AiLine, type AiPageResult, type EstimateLine, type PriceItem, type Unit } from "./types"
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
@@ -27,11 +27,7 @@ export async function analyzePage(
   opts: { categories: string[]; projectNotes: string; highDetail: boolean; signal?: AbortSignal },
 ): Promise<AiPageResult> {
   const page = await doc.getPage(pageNumber)
-  const [text, overview, tiles] = await Promise.all([
-    pageText(page),
-    pageToJpeg(page, 1600),
-    opts.highDetail ? pageToTiles(page) : Promise.resolve([]),
-  ])
+  const [text, { overview, tiles }] = await Promise.all([pageText(page), pageImagesForAi(page, opts.highDetail)])
   return post<AiPageResult>(
     "/api/analyze-page",
     { page: pageNumber, text, overview, tiles, categories: opts.categories, projectNotes: opts.projectNotes },

@@ -34,46 +34,60 @@ function canvasToJpegBase64(canvas: HTMLCanvasElement, quality: number) {
   return canvas.toDataURL("image/jpeg", quality).split(",")[1]
 }
 
-/** Whole page as one JPEG whose long edge is at most maxEdge px. */
-export async function pageToJpeg(page: PDFPageProxy, maxEdge: number, quality = 0.8) {
-  const base = page.getViewport({ scale: 1 })
-  const zoom = maxEdge / Math.max(base.width, base.height)
-  const canvas = await renderToCanvas(page, zoom)
-  const data = canvasToJpegBase64(canvas, quality)
-  canvas.width = canvas.height = 0
-  return data
-}
+/** Long edge (px) for images sent to the model; larger images get downscaled on its side anyway. */
+const AI_IMAGE_EDGE = 1568
+/** Roughly how many inches of paper each zoomed section covers (~105 dpi at AI_IMAGE_EDGE). */
+const SECTION_INCHES = 15
+/** Stay well under the 4.5 MB request-body limit of Vercel functions (base64 characters). */
+const PAYLOAD_BUDGET = 3_600_000
 
 /**
- * Splits the page into a 2x2 grid of overlapping, high-resolution JPEG crops so
- * small symbols (outlets, fixtures, dimension text) stay legible to the model.
+ * Images of one sheet for the AI takeoff: a full-sheet overview, plus (in high-detail mode)
+ * overlapping zoomed sections sized to the paper so small notes, dimensions and symbols stay
+ * legible. Big sheets (36x24, 42x30) get a 3x2 grid; letter-size sheets need none.
+ * JPEG quality steps down only if the request would be too large to upload.
  */
-export async function pageToTiles(page: PDFPageProxy, tileEdge = 1600, quality = 0.82) {
+export async function pageImagesForAi(page: PDFPageProxy, highDetail: boolean) {
   const base = page.getViewport({ scale: 1 })
-  const overlap = 0.06
-  const zoom = (tileEdge * 2 * (1 - overlap)) / Math.max(base.width, base.height)
-  const full = await renderToCanvas(page, zoom)
-  const tiles: { label: string; data: string }[] = []
-  const tw = Math.ceil(full.width * (0.5 + overlap / 2))
-  const th = Math.ceil(full.height * (0.5 + overlap / 2))
-  const labels = [
-    ["top-left", "top-right"],
-    ["bottom-left", "bottom-right"],
-  ]
-  for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 2; col++) {
-      const sx = col === 0 ? 0 : full.width - tw
-      const sy = row === 0 ? 0 : full.height - th
-      const tile = document.createElement("canvas")
-      tile.width = tw
-      tile.height = th
-      tile.getContext("2d")!.drawImage(full, sx, sy, tw, th, 0, 0, tw, th)
-      tiles.push({ label: labels[row][col], data: canvasToJpegBase64(tile, quality) })
-      tile.width = tile.height = 0
+  const overviewCanvas = await renderToCanvas(page, AI_IMAGE_EDGE / Math.max(base.width, base.height))
+
+  const sections: { label: string; canvas: HTMLCanvasElement }[] = []
+  const cols = Math.ceil(base.width / 72 / SECTION_INCHES)
+  const rows = Math.ceil(base.height / 72 / SECTION_INCHES)
+  if (highDetail && cols * rows > 1) {
+    const overlap = 0.06
+    const secW = cols > 1 ? (base.width / cols) * (1 + overlap) : base.width
+    const secH = rows > 1 ? (base.height / rows) * (1 + overlap) : base.height
+    const full = await renderToCanvas(page, AI_IMAGE_EDGE / Math.max(secW, secH))
+    const z = full.width / base.width
+    const tw = Math.min(full.width, Math.ceil(secW * z))
+    const th = Math.min(full.height, Math.ceil(secH * z))
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const sx = cols > 1 ? Math.round(((full.width - tw) * c) / (cols - 1)) : 0
+        const sy = rows > 1 ? Math.round(((full.height - th) * r) / (rows - 1)) : 0
+        const tile = document.createElement("canvas")
+        tile.width = tw
+        tile.height = th
+        tile.getContext("2d")!.drawImage(full, sx, sy, tw, th, 0, 0, tw, th)
+        sections.push({ label: `row ${r + 1} of ${rows}, column ${c + 1} of ${cols}`, canvas: tile })
+      }
     }
+    full.width = full.height = 0
   }
-  full.width = full.height = 0
-  return tiles
+
+  let result = { overview: "", tiles: [] as { label: string; data: string }[] }
+  for (const quality of [0.82, 0.7, 0.58, 0.46]) {
+    result = {
+      overview: canvasToJpegBase64(overviewCanvas, quality),
+      tiles: sections.map((s) => ({ label: s.label, data: canvasToJpegBase64(s.canvas, quality) })),
+    }
+    const size = result.overview.length + result.tiles.reduce((sum, t) => sum + t.data.length, 0)
+    if (size <= PAYLOAD_BUDGET) break
+  }
+  overviewCanvas.width = overviewCanvas.height = 0
+  sections.forEach((s) => (s.canvas.width = s.canvas.height = 0))
+  return result
 }
 
 /** Text drawn on the page (CAD exports carry dimensions, schedules and notes as real text). */

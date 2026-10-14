@@ -158,7 +158,7 @@ export function AiPanel({
         <input type="checkbox" className="mt-1" checked={highDetail} onChange={(e) => setHighDetail(e.target.checked)} disabled={running} />
         <span>
           High-detail mode
-          <span className="block text-xs text-slate-500">Also sends four zoomed quadrants per sheet. Much better symbol counts on electrical and plumbing sheets, at about 4× the cost.</span>
+          <span className="block text-xs text-slate-500">Also sends zoomed sections of each sheet (a 3×2 grid on 36"×24" and larger sheets). Much better at reading small notes and counting outlets and fixtures, at several times the cost.</span>
         </span>
       </label>
 

@@ -22,7 +22,7 @@ Report quantities a contractor would price, organized by trade. Cover whatever t
 
 Rules:
 - Read dimensions, room areas, schedules, legends, and general notes from the text layer and the images. Prefer stated numbers (area tables, schedules, dimension strings) over visual estimates.
-- Count symbols carefully using the legend. The high-resolution quadrant images overlap slightly: do not double count symbols in the overlap.
+- Count symbols carefully using the legend. The zoomed section images overlap slightly at their edges: do not double count symbols in the overlap. Use the overview to see how the sections fit together.
 - In "basis", say exactly how you got each number (e.g. "Living 18'-0\\" x 22'-6\\" = 405 SF", "counted 14 duplex receptacle symbols per legend").
 - If a quantity is visible but cannot be determined, return quantity null with a basis explaining what is missing.
 - Use low confidence for anything estimated from proportions rather than read or counted.
@@ -37,13 +37,15 @@ export async function POST(request: Request) {
       { type: "image", source: { type: "base64", media_type: "image/jpeg", data: body.overview } },
     ]
     for (const tile of body.tiles) {
-      content.push({ type: "text", text: `High-resolution ${tile.label} quadrant:` })
+      content.push({ type: "text", text: `Zoomed section (${tile.label}):` })
       content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: tile.data } })
     }
     content.push({
       type: "text",
       text: [
-        body.text ? `Text layer extracted from the PDF (may be empty for scanned sheets):\n<text_layer>\n${body.text}\n</text_layer>` : "This sheet has no text layer (scanned); read everything from the images.",
+        body.text
+          ? `Text layer extracted from the PDF:\n<text_layer>\n${body.text}\n</text_layer>`
+          : "This sheet has no text layer (scanned or image-only PDF); read every dimension, note and schedule from the images, and lower confidence where text is hard to read.",
         body.projectNotes ? `Estimator notes for this project:\n${body.projectNotes}` : "",
         "Do the takeoff for this sheet.",
       ]
