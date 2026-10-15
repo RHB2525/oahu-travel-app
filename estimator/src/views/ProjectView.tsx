@@ -71,8 +71,15 @@ export function ProjectView({ id, tab, panel }: { id: string; tab: ProjectTab; p
       void check.loadingTask.destroy()
       // A replacement always gets a fresh key so other houses sharing the old set are untouched.
       const newKey = uid()
-      await db.putPdf(newKey, file)
-      if (pdfKey && !(await db.listProjects()).some((x) => x.id !== id && pdfKeyOf(x) === pdfKey)) await db.deletePdf(pdfKey)
+      try {
+        await db.putPdf(newKey, file)
+      } catch (err) {
+        setPdfError(`Couldn't save the new plan set: ${err instanceof Error ? err.message : err}`)
+        return
+      }
+      if (pdfKey && !(await db.listProjects().catch(() => [])).some((x) => x.id !== id && pdfKeyOf(x) === pdfKey)) {
+        await db.deletePdf(pdfKey).catch(() => {})
+      }
       update((p) => ({ ...p, pdfName: file.name, pdfKey: newKey, pages: undefined, pageCount }))
       setPdfVersion((v) => v + 1)
     },

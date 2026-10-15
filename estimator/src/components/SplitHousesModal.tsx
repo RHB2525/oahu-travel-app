@@ -89,15 +89,21 @@ export function SplitHousesModal({
     }
     // This estimate becomes the first house and keeps its lines; the others start fresh.
     const [first, ...rest] = plan
-    for (const [i, h] of rest.entries()) {
-      const copy = scoped(structuredClone(project), h.pages, h.name)
-      await db.putProject({
-        ...copy,
-        id: uid(),
-        number: `${project.number}-${String.fromCharCode(66 + i)}`,
-        lines: [],
-        createdAt: now,
-      })
+    try {
+      for (const [i, h] of rest.entries()) {
+        const copy = scoped(structuredClone(project), h.pages, h.name)
+        await db.putProject({
+          ...copy,
+          id: uid(),
+          number: `${project.number}-${String.fromCharCode(66 + i)}`,
+          lines: [],
+          createdAt: now,
+        })
+      }
+    } catch (err) {
+      alert(`Couldn't create the house estimates: ${err instanceof Error ? err.message : err}. Check the Projects list for any that were created, then try again.`)
+      setBusy(false)
+      return
     }
     update((p) => {
       const kept = scoped(p, first.pages, first.name)

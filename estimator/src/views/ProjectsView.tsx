@@ -45,16 +45,24 @@ export function ProjectsView() {
 
   async function remove(p: Project) {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return
-    await db.deleteProject(p.id)
-    // The plan set may be shared with other houses split from the same PDF.
-    const key = pdfKeyOf(p)
-    if (!(await db.listProjects()).some((x) => pdfKeyOf(x) === key)) await db.deletePdf(key)
+    try {
+      await db.deleteProject(p.id)
+      // The plan set may be shared with other houses split from the same PDF.
+      const key = pdfKeyOf(p)
+      if (!(await db.listProjects()).some((x) => pdfKeyOf(x) === key)) await db.deletePdf(key)
+    } catch (err) {
+      alert(`Couldn't delete: ${err instanceof Error ? err.message : err}`)
+    }
     reload()
   }
 
   async function duplicate(p: Project) {
     const now = new Date().toISOString()
-    await db.putProject({ ...structuredClone(p), id: uid(), pdfKey: pdfKeyOf(p), name: `${p.name} (copy)`, createdAt: now, updatedAt: now })
+    try {
+      await db.putProject({ ...structuredClone(p), id: uid(), pdfKey: pdfKeyOf(p), name: `${p.name} (copy)`, createdAt: now, updatedAt: now })
+    } catch (err) {
+      alert(`Couldn't duplicate: ${err instanceof Error ? err.message : err}`)
+    }
     reload()
   }
 
@@ -151,18 +159,25 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
   const [site, setSite] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function create() {
     setBusy(true)
+    setError(null)
     const p = newProject(name.trim() || file?.name.replace(/\.pdf$/i, "") || "New estimate")
     p.client.name = client.trim()
     p.siteAddress = site.trim()
-    if (file) {
-      p.pdfName = file.name
-      await db.putPdf(p.id, file)
+    try {
+      if (file) {
+        p.pdfName = file.name
+        await db.putPdf(p.id, file)
+      }
+      await db.putProject(p)
+      navigate(href.project(p.id))
+    } catch (err) {
+      setError(`Couldn't save the new estimate: ${err instanceof Error ? err.message : err}. Check your connection and try again.`)
+      setBusy(false)
     }
-    await db.putProject(p)
-    navigate(href.project(p.id))
   }
 
   return (
@@ -190,6 +205,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
             <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
         </Field>
+        {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" onClick={onClose}>
             Cancel
