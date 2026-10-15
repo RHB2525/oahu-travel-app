@@ -7,6 +7,7 @@ import { downloadBlob, fmtMoney0, safeFilename, uid } from "../lib/format"
 import { bytesToBase64 } from "../lib/pdf"
 import { href, navigate } from "../lib/route"
 import { newProject, pdfKeyOf, useCategories, useProjects } from "../lib/store"
+import { MoveLocalBanner } from "../components/MoveLocalBanner"
 import type { Project } from "../lib/types"
 
 export function ProjectsView() {
@@ -91,6 +92,8 @@ export function ProjectsView() {
           />
         </div>
       </div>
+
+      <MoveLocalBanner onMoved={() => window.location.reload()} />
 
       <Card>
         {projects === null ? (

@@ -19,7 +19,7 @@ function subscribeKv(key: string, fn: Listener) {
 function setKv<T>(key: string, value: T) {
   kvCache.set(key, value)
   kvListeners.get(key)?.forEach((fn) => fn())
-  void db.putKv(key, value)
+  db.putKv(key, value).catch(() => {})
 }
 
 function useKv<T>(key: string, fallback: T): [T, (next: T | ((prev: T) => T)) => void, boolean] {
@@ -135,7 +135,7 @@ export function useProject(id: string) {
   const flush = useCallback(() => {
     window.clearTimeout(timer.current)
     timer.current = undefined
-    if (latest.current) void db.putProject(latest.current)
+    if (latest.current) db.putProject(latest.current).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -153,7 +153,9 @@ export function useProject(id: string) {
       const stamp = (p: Project) => ({ ...fn(p), updatedAt: new Date().toISOString() })
       if (!mounted.current) {
         // Work that finishes after leaving the page (e.g. an AI run) is applied to the stored copy.
-        void db.getProject(id).then((p) => p && db.putProject(stamp(p)))
+        db.getProject(id)
+          .then((p) => p && db.putProject(stamp(p)))
+          .catch(() => {})
         return
       }
       const prev = latest.current
@@ -164,7 +166,7 @@ export function useProject(id: string) {
       window.clearTimeout(timer.current)
       timer.current = window.setTimeout(() => {
         timer.current = undefined
-        void db.putProject(next)
+        db.putProject(next).catch(() => {})
       }, 400)
     },
     [id],
